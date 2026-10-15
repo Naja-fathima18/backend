@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: parking-fee
+  mvc:
+    problemdetails:
+      enabled: true
