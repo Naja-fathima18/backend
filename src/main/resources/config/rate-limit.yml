@@ -1,0 +1,6 @@
+rate-limit:
+  capacity: 10
+  window: 1m
+  header-name: X-API-Key
+  path-patterns:
+    - /api/quotes/**
