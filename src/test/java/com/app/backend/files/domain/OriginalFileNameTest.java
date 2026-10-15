@@ -29,6 +29,12 @@ class OriginalFileNameTest {
     }
 
     @Test
+    void dropsUnicodeFormatCharacters() {
+        assertThat(OriginalFileName.sanitize("invoice‮gpj.pdf")).isEqualTo("invoicegpj.pdf");
+        assertThat(OriginalFileName.sanitize("﻿re​port‍.png")).isEqualTo("report.png");
+    }
+
+    @Test
     void returnsEmptyForNullOrDirectoryOnlyNames() {
         assertThat(OriginalFileName.sanitize(null)).isEmpty();
         assertThat(OriginalFileName.sanitize("../")).isEmpty();

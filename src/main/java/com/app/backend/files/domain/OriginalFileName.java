@@ -16,11 +16,15 @@ public final class OriginalFileName {
         String lastSegment = rawName.substring(lastSeparator + 1);
         String withoutControlChars = lastSegment
                 .codePoints()
-                .filter(codePoint -> !Character.isISOControl(codePoint))
+                .filter(OriginalFileName::isVisible)
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString()
                 .strip();
         return truncate(withoutControlChars);
+    }
+
+    private static boolean isVisible(int codePoint) {
+        return !Character.isISOControl(codePoint) && Character.getType(codePoint) != Character.FORMAT;
     }
 
     private static String truncate(String name) {
