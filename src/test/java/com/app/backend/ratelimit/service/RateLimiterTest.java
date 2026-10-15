@@ -106,16 +106,45 @@ class RateLimiterTest {
     }
 
     @Test
-    void evictsOnlyExpiredWindows() {
+    void evictsOnlyExpiredWindowsOnFirstRequestAfterAWindowHasPassed() {
         consume("idle", 1);
         clock.advance(Duration.ofSeconds(30));
         consume("active", 1);
         clock.advance(Duration.ofSeconds(30));
 
-        rateLimiter.evictExpiredWindows();
+        rateLimiter.tryConsume("trigger");
 
-        assertThat(rateLimiter.trackedClients()).isEqualTo(1);
+        assertThat(rateLimiter.trackedClients()).isEqualTo(2);
         assertThat(rateLimiter.tryConsume("active").remaining()).isEqualTo(CAPACITY - 2);
+    }
+
+    @Test
+    void keepsExpiredWindowsUntilTheNextSweepIsDue() {
+        consume("idle", 1);
+        clock.advance(Duration.ofSeconds(59));
+
+        rateLimiter.tryConsume("before-first-sweep");
+        int trackedBeforeFirstSweep = rateLimiter.trackedClients();
+
+        assertThat(trackedBeforeFirstSweep).isEqualTo(2);
+    }
+
+    @Test
+    void sweepsAtMostOncePerWindow() {
+        clock.advance(Duration.ofSeconds(10));
+        consume("idle", 1);
+        clock.advance(Duration.ofSeconds(50));
+        consume("first-sweep", 1);
+        clock.advance(Duration.ofSeconds(15));
+
+        rateLimiter.tryConsume("between-sweeps");
+        int trackedBetweenSweeps = rateLimiter.trackedClients();
+        clock.advance(Duration.ofSeconds(45));
+        rateLimiter.tryConsume("second-sweep");
+        int trackedAfterSecondSweep = rateLimiter.trackedClients();
+
+        assertThat(trackedBetweenSweeps).isEqualTo(3);
+        assertThat(trackedAfterSecondSweep).isEqualTo(2);
     }
 
     @Test

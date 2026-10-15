@@ -8,16 +8,14 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
-@EnableScheduling
 @EnableConfigurationProperties(RateLimitProperties.class)
 public class RateLimitConfig {
 
     public static final String CLOCK_BEAN = "rateLimitClock";
 
-    @Bean(CLOCK_BEAN)
+    @Bean(name = CLOCK_BEAN, defaultCandidate = false)
     Clock rateLimitClock() {
         return Clock.systemUTC();
     }

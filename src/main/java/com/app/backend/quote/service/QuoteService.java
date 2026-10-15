@@ -15,7 +15,7 @@ public class QuoteService {
             new Quote(4, "Programs must be written for people to read.", "Harold Abelson"),
             new Quote(5, "Talk is cheap. Show me the code.", "Linus Torvalds"));
 
-    public List<Quote> all() {
+    List<Quote> all() {
         return QUOTES;
     }
 

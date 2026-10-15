@@ -9,9 +9,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,15 +20,18 @@ public class RateLimiter {
     private final Clock clock;
     private final int capacity;
     private final Duration window;
+    private final AtomicReference<Instant> nextSweepAt;
 
     public RateLimiter(RateLimitProperties properties, @Qualifier(RateLimitConfig.CLOCK_BEAN) Clock clock) {
         this.clock = clock;
         this.capacity = properties.capacity();
         this.window = properties.window();
+        this.nextSweepAt = new AtomicReference<>(clock.instant().plus(window));
     }
 
     public RateLimitDecision tryConsume(String clientKey) {
         Instant now = clock.instant();
+        sweepExpiredWindowsIfDue(now);
         FixedWindow current = windows.compute(clientKey, (key, existing) -> nextWindow(existing, now));
         if (current.isWithin(capacity)) {
             return RateLimitDecision.allow(capacity, capacity - current.count());
@@ -37,16 +39,22 @@ public class RateLimiter {
         return RateLimitDecision.reject(capacity, retryAfterSeconds(current, now));
     }
 
-    @Scheduled(fixedDelay = 1, initialDelay = 1, timeUnit = TimeUnit.MINUTES)
-    public void evictExpiredWindows() {
-        Instant now = clock.instant();
+    int trackedClients() {
+        return windows.size();
+    }
+
+    private void sweepExpiredWindowsIfDue(Instant now) {
+        Instant due = nextSweepAt.get();
+        if (now.isBefore(due) || !nextSweepAt.compareAndSet(due, now.plus(window))) {
+            return;
+        }
+        evictExpiredWindows(now);
+    }
+
+    private void evictExpiredWindows(Instant now) {
         for (String key : windows.keySet()) {
             windows.computeIfPresent(key, (k, existing) -> existing.isExpired(now, window) ? null : existing);
         }
-    }
-
-    int trackedClients() {
-        return windows.size();
     }
 
     private FixedWindow nextWindow(FixedWindow existing, Instant now) {
