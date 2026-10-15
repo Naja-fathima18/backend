@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.app.backend.library.TestIsbns;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Year;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,7 +79,7 @@ class LibraryFlowTest {
 
     @Test
     void rejectsPublishedYearInTheFuture() throws Exception {
-        int nextYear = Year.now().getValue() + 1;
+        int nextYear = Year.now(ZoneOffset.UTC).getValue() + 1;
 
         mockMvc.perform(post("/api/books")
                         .contentType(MediaType.APPLICATION_JSON)
