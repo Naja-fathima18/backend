@@ -80,7 +80,7 @@ public class BookService {
     @Transactional
     public void delete(Long id) {
         Book book = bookRepository.findByIdForUpdate(id).orElseThrow(() -> bookNotFound(id));
-        if (loanRepository.existsByBookIdAndReturnedAtIsNull(id)) {
+        if (loanRepository.existsOpenLoanForBook(id)) {
             throw new ConflictException("Book " + id + " is currently borrowed and cannot be deleted");
         }
         loanRepository.deleteAllByBookId(id);

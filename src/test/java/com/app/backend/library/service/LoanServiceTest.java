@@ -46,7 +46,7 @@ class LoanServiceTest {
     void borrowsAvailableBookUnderRowLock() {
         Book book = new Book("Title", "Author", "9780306406157", 2020);
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.existsByBookIdAndReturnedAtIsNull(1L)).thenReturn(false);
+        when(loanRepository.existsOpenLoanForBook(1L)).thenReturn(false);
         when(loanRepository.saveAndFlush(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Loan loan = loanService.borrow(1L, "Alice");
@@ -61,7 +61,7 @@ class LoanServiceTest {
     void rejectsBorrowingAlreadyBorrowedBook() {
         Book book = new Book("Title", "Author", "9780306406157", 2020);
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.existsByBookIdAndReturnedAtIsNull(1L)).thenReturn(true);
+        when(loanRepository.existsOpenLoanForBook(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> loanService.borrow(1L, "Bob"))
                 .isInstanceOf(ConflictException.class)
@@ -83,7 +83,7 @@ class LoanServiceTest {
         Book book = new Book("Title", "Author", "9780306406157", 2020);
         Loan open = new Loan(book, "Alice", NOW.minusSeconds(3600));
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.findByBookIdAndReturnedAtIsNull(1L)).thenReturn(Optional.of(open));
+        when(loanRepository.findOpenLoanForBook(1L)).thenReturn(Optional.of(open));
         when(loanRepository.saveAndFlush(open)).thenReturn(open);
 
         Loan returned = loanService.returnBook(1L);
@@ -96,7 +96,7 @@ class LoanServiceTest {
     void rejectsReturningBookThatIsNotBorrowed() {
         Book book = new Book("Title", "Author", "9780306406157", 2020);
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.findByBookIdAndReturnedAtIsNull(1L)).thenReturn(Optional.empty());
+        when(loanRepository.findOpenLoanForBook(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> loanService.returnBook(1L))
                 .isInstanceOf(ConflictException.class)

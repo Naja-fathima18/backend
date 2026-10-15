@@ -30,7 +30,7 @@ public class LoanService {
     @Transactional
     public Loan borrow(Long bookId, String memberName) {
         Book book = lockBook(bookId);
-        if (loanRepository.existsByBookIdAndReturnedAtIsNull(bookId)) {
+        if (loanRepository.existsOpenLoanForBook(bookId)) {
             throw new ConflictException("Book " + bookId + " is already borrowed");
         }
         Loan loan = loanRepository.saveAndFlush(new Loan(book, memberName, Instant.now(clock)));
@@ -42,7 +42,7 @@ public class LoanService {
     public Loan returnBook(Long bookId) {
         lockBook(bookId);
         Loan loan = loanRepository
-                .findByBookIdAndReturnedAtIsNull(bookId)
+                .findOpenLoanForBook(bookId)
                 .orElseThrow(() -> new ConflictException("Book " + bookId + " is not borrowed"));
         loan.close(Instant.now(clock));
         Loan saved = loanRepository.saveAndFlush(loan);

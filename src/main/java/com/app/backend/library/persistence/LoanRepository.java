@@ -9,9 +9,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
 
-    boolean existsByBookIdAndReturnedAtIsNull(Long bookId);
+    @Query("select count(l) > 0 from Loan l where l.book.id = :bookId and l.returnedAt is null")
+    boolean existsOpenLoanForBook(@Param("bookId") Long bookId);
 
-    Optional<Loan> findByBookIdAndReturnedAtIsNull(Long bookId);
+    @Query("select l from Loan l where l.book.id = :bookId and l.returnedAt is null")
+    Optional<Loan> findOpenLoanForBook(@Param("bookId") Long bookId);
 
     @Modifying
     @Query("delete from Loan l where l.book.id = :bookId")

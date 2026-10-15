@@ -56,7 +56,7 @@ class ConcurrentBorrowTest {
         }
         assertThat(outcomes).filteredOn(outcome -> outcome == Outcome.BORROWED).hasSize(1);
         assertThat(outcomes).filteredOn(outcome -> outcome == Outcome.CONFLICT).hasSize(CONCURRENT_REQUESTS - 1);
-        assertThat(loanRepository.findByBookIdAndReturnedAtIsNull(book.getId())).isPresent();
+        assertThat(loanRepository.findOpenLoanForBook(book.getId())).isPresent();
         assertThat(loanRepository.findAll().stream()
                         .filter(loan -> loan.getBookId().equals(book.getId())))
                 .hasSize(1);

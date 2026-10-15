@@ -216,7 +216,7 @@ class BookServiceTest {
     void deletesBookAndItsLoanHistoryWhenNotBorrowed() {
         Book book = new Book("Title", "Author", ISBN, 2020);
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.existsByBookIdAndReturnedAtIsNull(1L)).thenReturn(false);
+        when(loanRepository.existsOpenLoanForBook(1L)).thenReturn(false);
 
         bookService.delete(1L);
 
@@ -229,7 +229,7 @@ class BookServiceTest {
     void rejectsDeletingBorrowedBook() {
         Book book = new Book("Title", "Author", ISBN, 2020);
         when(bookRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.existsByBookIdAndReturnedAtIsNull(1L)).thenReturn(true);
+        when(loanRepository.existsOpenLoanForBook(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> bookService.delete(1L))
                 .isInstanceOf(ConflictException.class)
