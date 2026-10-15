@@ -1,5 +1,7 @@
 package com.app.backend.common.error;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
@@ -83,6 +85,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail body = problem(MALFORMED_BODY_DETAIL);
+        if (ex.getCause() instanceof MismatchedInputException mismatch
+                && !mismatch.getPath().isEmpty()) {
+            body.setProperty(ERRORS_PROPERTY, List.of(violation(jsonPathOf(mismatch), mismatchMessage(mismatch))));
+        }
         return handleExceptionInternal(ex, body, headers, HttpStatus.BAD_REQUEST, request);
     }
 
@@ -138,6 +144,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .filter(Objects::nonNull)
                 .reduce((first, second) -> second)
                 .orElse("parameter");
+    }
+
+    private static String jsonPathOf(MismatchedInputException mismatch) {
+        StringBuilder path = new StringBuilder();
+        for (JsonMappingException.Reference reference : mismatch.getPath()) {
+            if (reference.getFieldName() != null) {
+                if (!path.isEmpty()) {
+                    path.append('.');
+                }
+                path.append(reference.getFieldName());
+            } else if (reference.getIndex() >= 0) {
+                path.append('[').append(reference.getIndex()).append(']');
+            }
+        }
+        return path.isEmpty() ? "body" : path.toString();
+    }
+
+    private static String mismatchMessage(MismatchedInputException mismatch) {
+        Class<?> targetType = mismatch.getTargetType();
+        if (targetType == null) {
+            return DEFAULT_VIOLATION_MESSAGE;
+        }
+        return "must be a valid " + targetType.getSimpleName();
     }
 
     private static String typeMismatchMessage(TypeMismatchException ex) {

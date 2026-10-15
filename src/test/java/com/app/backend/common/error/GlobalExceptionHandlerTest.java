@@ -9,12 +9,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Payload;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -33,6 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 class GlobalExceptionHandlerTest {
 
     private static final String SECRET_MESSAGE = "db password is hunter2";
+    private static final String ORDERED_RANGE_MESSAGE = "from must not be after to";
 
     @Autowired
     private MockMvc mockMvc;
@@ -59,6 +69,63 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.errors[0].message").value("must be greater than or equal to 1"))
                 .andExpect(jsonPath("$.errors[1].field").value("name"))
                 .andExpect(jsonPath("$.errors[1].message").value("must not be blank"));
+    }
+
+    @Test
+    void reportsBodyFieldNamesAndParameterNameWhenBodyAndParameterAreBothInvalid() throws Exception {
+        mockMvc.perform(post("/probe/body-and-param")
+                        .param("limit", "0")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"\",\"count\":0}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value(GlobalExceptionHandler.VALIDATION_FAILED_DETAIL))
+                .andExpect(jsonPath("$.errors", hasSize(3)))
+                .andExpect(jsonPath("$.errors[0].field").value("count"))
+                .andExpect(jsonPath("$.errors[0].message").value("must be greater than or equal to 1"))
+                .andExpect(jsonPath("$.errors[1].field").value("limit"))
+                .andExpect(jsonPath("$.errors[1].message").value("must be greater than or equal to 1"))
+                .andExpect(jsonPath("$.errors[2].field").value("name"))
+                .andExpect(jsonPath("$.errors[2].message").value("must not be blank"));
+    }
+
+    @Test
+    void reportsClassLevelConstraintUnderObjectName() throws Exception {
+        mockMvc.perform(post("/probe/range")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"from\":5,\"to\":1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value(GlobalExceptionHandler.VALIDATION_FAILED_DETAIL))
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].field").value("probeRange"))
+                .andExpect(jsonPath("$.errors[0].message").value(ORDERED_RANGE_MESSAGE));
+    }
+
+    @Test
+    void reportsFieldPathForWronglyTypedBodyField() throws Exception {
+        mockMvc.perform(post("/probe/body")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"car\",\"count\":\"abc\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value(GlobalExceptionHandler.MALFORMED_BODY_DETAIL))
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].field").value("count"))
+                .andExpect(jsonPath("$.errors[0].message").value("must be a valid Integer"))
+                .andExpect(content().string(not(containsString("abc"))))
+                .andExpect(content().string(not(containsString("com.fasterxml"))));
+    }
+
+    @Test
+    void reportsIndexedFieldPathForWronglyTypedNestedBodyField() throws Exception {
+        mockMvc.perform(post("/probe/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"name\":\"car\",\"count\":1},{\"name\":\"van\",\"count\":\"x\"}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].field").value("items[1].count"))
+                .andExpect(jsonPath("$.errors[0].message").value("must be a valid Integer"));
     }
 
     @Test
@@ -161,6 +228,30 @@ class GlobalExceptionHandlerTest {
     record ProbePayload(
             @NotBlank String name, @NotNull @Min(1) Integer count) {}
 
+    record ProbeBatch(@NotNull List<@Valid ProbePayload> items) {}
+
+    @OrderedRange
+    record ProbeRange(@NotNull Integer from, @NotNull Integer to) {}
+
+    @Target(ElementType.TYPE)
+    @Retention(RetentionPolicy.RUNTIME)
+    @Constraint(validatedBy = OrderedRangeValidator.class)
+    @interface OrderedRange {
+        String message() default ORDERED_RANGE_MESSAGE;
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    static class OrderedRangeValidator implements ConstraintValidator<OrderedRange, ProbeRange> {
+
+        @Override
+        public boolean isValid(ProbeRange range, ConstraintValidatorContext context) {
+            return range.from() == null || range.to() == null || range.from() <= range.to();
+        }
+    }
+
     @RestController
     @RequestMapping("/probe")
     static class ProbeController {
@@ -174,6 +265,21 @@ class GlobalExceptionHandlerTest {
         @PostMapping("/body")
         String body(@Valid @RequestBody ProbePayload payload) {
             return payload.name();
+        }
+
+        @PostMapping("/body-and-param")
+        String bodyAndParam(@Valid @RequestBody ProbePayload payload, @RequestParam @Min(1) int limit) {
+            return payload.name();
+        }
+
+        @PostMapping("/range")
+        int range(@Valid @RequestBody ProbeRange range) {
+            return range.to() - range.from();
+        }
+
+        @PostMapping("/batch")
+        int batch(@Valid @RequestBody ProbeBatch batch) {
+            return batch.items().size();
         }
 
         @GetMapping("/params")
