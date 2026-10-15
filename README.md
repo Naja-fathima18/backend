@@ -1,3 +1,26 @@
-# parking-fee
+# be-interview-prep
 
-Parking fee service: per-visit fee and daily collection with a per-car daily cap.
+Spring Boot 3.5 / Java 21 backend hosting five interview exercises behind one consistent REST and error contract.
+
+## Build, test and run
+
+Requires only JDK 21; Maven is provided by the wrapper. The database is in-memory H2 (PostgreSQL mode), so no database setup is needed.
+
+```bash
+./mvnw -B test
+./mvnw -B verify
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+curl http://localhost:8080/actuator/health
+```
+
+On Windows use `mvnw.cmd` instead of `./mvnw`.
+
+| # | Question | PR link |
+|---|---|---|
+| 1 | Library API | |
+| 2 | Expense Tracker | |
+| 3 | File Upload Service | |
+| 4 | API Rate Limiting | |
+| 5 | Appointment Booking | |
+
+Video:
