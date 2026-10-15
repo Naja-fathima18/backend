@@ -1,0 +1,7 @@
+booking:
+  hold-duration: 5m
+  slot-length: 30m
+  day-start: "09:00"
+  day-end: "17:00"
+  expiry-sweep-interval: 30s
+  expiry-sweep-enabled: true
