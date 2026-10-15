@@ -1,5 +1,9 @@
 package com.app.backend.files;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -19,6 +23,15 @@ public final class FileSamples {
 
     public static byte[] pdf(int size) {
         return withSignature(size, 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x37);
+    }
+
+    public static InputStream failingAfter(byte[] content) {
+        return new SequenceInputStream(new ByteArrayInputStream(content), new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("Connection reset by peer");
+            }
+        });
     }
 
     public static byte[] windowsExecutable() {

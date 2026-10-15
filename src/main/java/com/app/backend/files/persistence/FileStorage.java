@@ -23,8 +23,8 @@ public class FileStorage {
 
     public Path write(String storageName, InputStream content) {
         Path target = resolve(storageName);
+        createStorageDirectory();
         try {
-            Files.createDirectories(storageDir);
             Files.copy(content, target);
             return target;
         } catch (FileAlreadyExistsException ex) {
@@ -33,6 +33,15 @@ public class FileStorage {
         } catch (IOException ex) {
             log.error("Failed to write stored file {}", storageName, ex);
             deleteQuietly(storageName);
+            throw new FileStorageException("Could not store the file", ex);
+        }
+    }
+
+    private void createStorageDirectory() {
+        try {
+            Files.createDirectories(storageDir);
+        } catch (IOException ex) {
+            log.error("Could not create storage directory {}", storageDir, ex);
             throw new FileStorageException("Could not store the file", ex);
         }
     }

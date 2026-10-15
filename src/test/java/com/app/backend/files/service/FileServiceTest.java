@@ -3,6 +3,8 @@ package com.app.backend.files.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +37,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class FileServiceTest {
@@ -186,7 +189,7 @@ class FileServiceTest {
     }
 
     @Test
-    void createsNoRecordWhenWritingFails() throws IOException {
+    void createsNoRecordWhenStorageDirectoryCannotBeCreated() throws IOException {
         Path notADirectory = Files.writeString(storageDir.resolve("occupied"), "x");
         FileService brokenStorageService = serviceStoringIn(notADirectory);
         MockMultipartFile file = multipart("a.png", "image/png", FileSamples.png(100));
@@ -196,6 +199,22 @@ class FileServiceTest {
                 .hasMessage("Could not store the file");
 
         verify(repository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void removesPartialFileAndCreatesNoRecordWhenUploadStreamFailsMidway() throws IOException {
+        byte[] content = FileSamples.png(64 * 1024);
+        MultipartFile interrupted = mock(MultipartFile.class);
+        when(interrupted.isEmpty()).thenReturn(false);
+        when(interrupted.getSize()).thenReturn(content.length * 2L);
+        when(interrupted.getOriginalFilename()).thenReturn("a.png");
+        when(interrupted.getInputStream()).thenReturn(FileSamples.failingAfter(content));
+
+        assertThatThrownBy(() -> service.upload(interrupted))
+                .isInstanceOf(FileStorageException.class)
+                .hasMessage("Could not store the file");
+
+        assertNothingStored();
     }
 
     @Test
@@ -234,11 +253,26 @@ class FileServiceTest {
         returnSavedEntity();
         StoredFile stored = service.upload(multipart("a.pdf", "application/pdf", FileSamples.pdf(100)));
         when(repository.findById(3L)).thenReturn(Optional.of(stored));
+        when(repository.removeById(3L)).thenReturn(1);
 
         service.delete(3L);
 
-        verify(repository).delete(stored);
+        verify(repository).removeById(3L);
         assertThat(storedFiles()).isEmpty();
+    }
+
+    @Test
+    void deleteThrowsNotFoundAndKeepsFileWhenRowWasAlreadyRemovedConcurrently() throws IOException {
+        returnSavedEntity();
+        StoredFile stored = service.upload(multipart("a.pdf", "application/pdf", FileSamples.pdf(100)));
+        when(repository.findById(3L)).thenReturn(Optional.of(stored));
+        when(repository.removeById(3L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(3L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("File 3 not found");
+
+        assertThat(storedFiles()).hasSize(1);
     }
 
     @Test
@@ -249,7 +283,7 @@ class FileServiceTest {
 
         assertThatThrownBy(() -> service.delete(42L)).isInstanceOf(NotFoundException.class);
 
-        verify(repository, never()).delete(any());
+        verify(repository, never()).removeById(anyLong());
         assertThat(storedFiles()).hasSize(1);
     }
 

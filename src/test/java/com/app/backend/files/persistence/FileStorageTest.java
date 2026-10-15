@@ -3,8 +3,11 @@ package com.app.backend.files.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.app.backend.files.FileSamples;
 import com.app.backend.files.domain.FileStorageException;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,30 @@ class FileStorageTest {
         FileStorage storage = new FileStorage(storageDir);
 
         assertThatThrownBy(() -> storage.resolve(name)).isInstanceOf(FileStorageException.class);
+    }
+
+    @Test
+    void removesPartiallyWrittenFileWhenTheStreamFails() {
+        FileStorage storage = new FileStorage(storageDir);
+
+        assertThatThrownBy(() -> storage.write("partial.png", FileSamples.failingAfter(new byte[64 * 1024])))
+                .isInstanceOf(FileStorageException.class)
+                .hasMessage("Could not store the file")
+                .hasCauseInstanceOf(IOException.class);
+
+        assertThat(storageDir.resolve("partial.png")).doesNotExist();
+    }
+
+    @Test
+    void reportsStorageDirectoryThatIsARegularFile() throws Exception {
+        Path occupied = Files.writeString(storageDir.resolve("occupied"), "x");
+        FileStorage storage = new FileStorage(occupied);
+
+        assertThatThrownBy(() -> storage.write("a.png", new ByteArrayInputStream(new byte[] {1})))
+                .isInstanceOf(FileStorageException.class)
+                .hasCauseInstanceOf(FileAlreadyExistsException.class);
+
+        assertThat(Files.readString(occupied)).isEqualTo("x");
     }
 
     @Test

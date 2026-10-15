@@ -86,8 +86,9 @@ public class FileService {
     public void delete(long id) {
         String storageName = transactions.execute(status -> {
             StoredFile file = findOrThrow(id);
-            repository.delete(file);
-            repository.flush();
+            if (repository.removeById(id) == 0) {
+                throw notFound(id);
+            }
             return file.getStorageName();
         });
         storage.delete(storageName);
