@@ -1,0 +1,5 @@
+rate-limit:
+  limit: 10
+  window: 1m
+  paths:
+    - /api/quotes/**
