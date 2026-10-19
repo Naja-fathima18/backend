@@ -19,7 +19,7 @@ public class QuoteService {
         return QUOTES.get(ThreadLocalRandom.current().nextInt(QUOTES.size()));
     }
 
-    public List<Quote> allQuotes() {
+    List<Quote> allQuotes() {
         return QUOTES;
     }
 }
