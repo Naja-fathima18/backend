@@ -1,0 +1,8 @@
+booking:
+  zone: UTC
+  opening-time: "09:00"
+  closing-time: "17:00"
+  hold-duration: PT5M
+  expiry-sweep:
+    enabled: true
+    interval: PT1M
