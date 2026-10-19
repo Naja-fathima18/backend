@@ -17,10 +17,10 @@ On Windows use `mvnw.cmd` instead of `./mvnw`.
 
 | # | Question | PR link |
 |---|---|---|
-| 1 | Library API | |
-| 2 | Expense Tracker | |
-| 3 | File Upload Service | |
-| 4 | API Rate Limiting | |
+| 1 | Library API | [#11](https://github.com/Naja-fathima18/backend/pull/11) |
+| 2 | Expense Tracker | [#9](https://github.com/Naja-fathima18/backend/pull/9) |
+| 3 | File Upload Service | [#10](https://github.com/Naja-fathima18/backend/pull/10) |
+| 4 | API Rate Limiting | [#12](https://github.com/Naja-fathima18/backend/pull/12) |
 | 5 | Appointment Booking | |
 
 Video:
