@@ -25,6 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class BookServiceTest {
@@ -113,7 +114,7 @@ class BookServiceTest {
     @Test
     void deleteRejectsBorrowedBook() {
         Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-        book.markBorrowed();
+        ReflectionTestUtils.setField(book, "borrowed", true);
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
 
         assertThatThrownBy(() -> bookService.delete(1L))

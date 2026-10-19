@@ -1,7 +1,6 @@
 package com.app.backend.library.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,42 +14,6 @@ class BookTest {
         Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
 
         assertThat(book.isAvailable()).isTrue();
-    }
-
-    @Test
-    void borrowingMakesBookUnavailable() {
-        Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-
-        book.markBorrowed();
-
-        assertThat(book.isAvailable()).isFalse();
-    }
-
-    @Test
-    void rejectsBorrowingABorrowedBook() {
-        Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-        book.markBorrowed();
-
-        assertThatThrownBy(book::markBorrowed)
-                .isInstanceOf(BookAlreadyBorrowedException.class)
-                .hasMessageContaining("already borrowed");
-    }
-
-    @Test
-    void returningMakesBookAvailableAgain() {
-        Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-        book.markBorrowed();
-
-        book.markReturned();
-
-        assertThat(book.isAvailable()).isTrue();
-    }
-
-    @Test
-    void rejectsReturningAnAvailableBook() {
-        Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-
-        assertThatThrownBy(book::markReturned).isInstanceOf(BookNotBorrowedException.class);
     }
 
     @ParameterizedTest

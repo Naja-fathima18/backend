@@ -347,9 +347,7 @@ class BookControllerTest {
     private static Book book(Long id, boolean borrowed) {
         Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
         ReflectionTestUtils.setField(book, "id", id);
-        if (borrowed) {
-            book.markBorrowed();
-        }
+        ReflectionTestUtils.setField(book, "borrowed", borrowed);
         return book;
     }
 

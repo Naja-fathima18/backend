@@ -48,20 +48,6 @@ public class Book {
         this.publishedYear = publishedYear;
     }
 
-    public void markBorrowed() {
-        if (borrowed) {
-            throw new BookAlreadyBorrowedException(id);
-        }
-        borrowed = true;
-    }
-
-    public void markReturned() {
-        if (!borrowed) {
-            throw new BookNotBorrowedException(id);
-        }
-        borrowed = false;
-    }
-
     public boolean isAvailable() {
         return !borrowed;
     }
