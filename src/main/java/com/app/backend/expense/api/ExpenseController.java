@@ -28,6 +28,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @RequestMapping("/api/expenses")
 public class ExpenseController {
 
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE = Integer.MAX_VALUE / MAX_PAGE_SIZE - 1;
+
     private final ExpenseService expenseService;
 
     public ExpenseController(ExpenseService expenseService) {
@@ -49,8 +52,8 @@ public class ExpenseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) ExpenseCategory category,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "0") @Min(0) @Max(MAX_PAGE) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
         return ExpensePageResponse.from(expenseService.list(new ExpenseFilter(from, to, category), page, size));
     }
 

@@ -288,6 +288,16 @@ class ExpenseControllerTest {
     }
 
     @Test
+    void rejectsPageWhoseOffsetWouldOverflow() throws Exception {
+        ResultActions result =
+                mockMvc.perform(get("/api/expenses").param("page", "2147483647").param("size", "100"));
+
+        result.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("page"));
+        verifyNoInteractions(expenseService);
+    }
+
+    @Test
     void rejectsPageSizeAboveLimit() throws Exception {
         ResultActions result = mockMvc.perform(get("/api/expenses").param("size", "101"));
 
