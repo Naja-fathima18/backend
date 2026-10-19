@@ -85,4 +85,8 @@ public class Book {
     public int getPublishedYear() {
         return publishedYear;
     }
+
+    public long getVersion() {
+        return version;
+    }
 }

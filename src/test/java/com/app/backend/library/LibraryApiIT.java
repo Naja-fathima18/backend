@@ -78,6 +78,7 @@ class LibraryApiIT {
 
         assertThat(deleted.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(afterDelete.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(loanRepository.countByBookId(id)).isEqualTo(1);
     }
 
     @Test

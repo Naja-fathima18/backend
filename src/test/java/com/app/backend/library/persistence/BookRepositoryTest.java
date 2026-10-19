@@ -110,7 +110,7 @@ class BookRepositoryTest {
     }
 
     @Test
-    void findsOnlyTheOpenLoanAndDeletesHistoryByBook() {
+    void findsOnlyTheOpenLoanOfABook() {
         Loan returned = Loan.open(dune.getId(), "m1", Instant.parse("2026-01-01T10:00:00Z"));
         returned.close(Instant.parse("2026-01-02T10:00:00Z"));
         loanRepository.save(returned);
@@ -122,11 +122,52 @@ class BookRepositoryTest {
                 .extracting(Loan::getId)
                 .isEqualTo(open.getId());
         assertThat(loanRepository.countByBookId(dune.getId())).isEqualTo(2);
+    }
 
-        int deleted = loanRepository.deleteByBookId(dune.getId());
+    @Test
+    void keepsLoanHistoryWhenBookIsDeleted() {
+        Loan returned = Loan.open(dune.getId(), "m1", Instant.parse("2026-01-01T10:00:00Z"));
+        returned.close(Instant.parse("2026-01-02T10:00:00Z"));
+        loanRepository.saveAndFlush(returned);
 
-        assertThat(deleted).isEqualTo(2);
-        assertThat(loanRepository.countByBookId(messiah.getId())).isEqualTo(1);
+        bookRepository.delete(dune);
+        bookRepository.flush();
+
+        assertThat(bookRepository.findById(dune.getId())).isEmpty();
+        assertThat(loanRepository.countByBookId(dune.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void marksAvailableBookBorrowedOnlyOnce() {
+        long versionBefore = dune.getVersion();
+
+        int first = bookRepository.markBorrowedIfAvailable(dune.getId());
+        int second = bookRepository.markBorrowedIfAvailable(dune.getId());
+
+        assertThat(first).isEqualTo(1);
+        assertThat(second).isZero();
+        Book reloaded = bookRepository.findById(dune.getId()).orElseThrow();
+        assertThat(reloaded.isAvailable()).isFalse();
+        assertThat(reloaded.getVersion()).isEqualTo(versionBefore + 1);
+    }
+
+    @Test
+    void marksBorrowedBookReturnedOnlyOnce() {
+        bookRepository.markBorrowedIfAvailable(dune.getId());
+
+        int first = bookRepository.markReturnedIfBorrowed(dune.getId());
+        int second = bookRepository.markReturnedIfBorrowed(dune.getId());
+
+        assertThat(first).isEqualTo(1);
+        assertThat(second).isZero();
+        assertThat(bookRepository.findById(dune.getId()).orElseThrow().isAvailable())
+                .isTrue();
+    }
+
+    @Test
+    void conditionalUpdatesMatchNothingForUnknownBook() {
+        assertThat(bookRepository.markBorrowedIfAvailable(-1L)).isZero();
+        assertThat(bookRepository.markReturnedIfBorrowed(-1L)).isZero();
     }
 
     private static PageRequest byTitle() {

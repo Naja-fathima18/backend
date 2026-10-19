@@ -15,8 +15,7 @@ CREATE TABLE loans (
     book_id     BIGINT                   NOT NULL,
     member_id   VARCHAR(255)             NOT NULL,
     borrowed_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    returned_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT fk_loans_book FOREIGN KEY (book_id) REFERENCES books (id)
+    returned_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX idx_loans_book_id ON loans (book_id);

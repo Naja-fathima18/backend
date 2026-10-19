@@ -13,7 +13,6 @@ import com.app.backend.library.domain.BookCurrentlyBorrowedException;
 import com.app.backend.library.domain.BookNotFoundException;
 import com.app.backend.library.domain.DuplicateIsbnException;
 import com.app.backend.library.persistence.BookRepository;
-import com.app.backend.library.persistence.LoanRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,9 +31,6 @@ class BookServiceTest {
 
     @Mock
     private BookRepository bookRepository;
-
-    @Mock
-    private LoanRepository loanRepository;
 
     @InjectMocks
     private BookService bookService;
@@ -105,13 +101,12 @@ class BookServiceTest {
     }
 
     @Test
-    void deleteRemovesAvailableBookAndItsLoanHistory() {
+    void deleteRemovesAvailableBook() {
         Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
 
         bookService.delete(1L);
 
-        verify(loanRepository).deleteByBookId(1L);
         verify(bookRepository).delete(book);
     }
 
@@ -125,7 +120,6 @@ class BookServiceTest {
                 .isInstanceOf(BookCurrentlyBorrowedException.class)
                 .hasMessageContaining("currently borrowed");
         verify(bookRepository, never()).delete(any(Book.class));
-        verify(loanRepository, never()).deleteByBookId(any());
     }
 
     @Test

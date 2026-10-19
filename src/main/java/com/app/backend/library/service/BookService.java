@@ -8,7 +8,6 @@ import com.app.backend.library.domain.DuplicateIsbnException;
 import com.app.backend.library.domain.Isbn;
 import com.app.backend.library.persistence.BookRepository;
 import com.app.backend.library.persistence.BookSpecifications;
-import com.app.backend.library.persistence.LoanRepository;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,11 +25,9 @@ public class BookService {
     private static final Logger log = LoggerFactory.getLogger(BookService.class);
 
     private final BookRepository bookRepository;
-    private final LoanRepository loanRepository;
 
-    public BookService(BookRepository bookRepository, LoanRepository loanRepository) {
+    public BookService(BookRepository bookRepository) {
         this.bookRepository = bookRepository;
-        this.loanRepository = loanRepository;
     }
 
     @Transactional
@@ -72,7 +69,6 @@ public class BookService {
         if (!book.isAvailable()) {
             throw new BookCurrentlyBorrowedException(id);
         }
-        loanRepository.deleteByBookId(id);
         bookRepository.delete(book);
         log.info("Deleted book {}", id);
     }

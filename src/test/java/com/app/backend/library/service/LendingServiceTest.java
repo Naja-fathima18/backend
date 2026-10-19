@@ -7,7 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.app.backend.library.domain.Book;
 import com.app.backend.library.domain.BookAlreadyBorrowedException;
 import com.app.backend.library.domain.BookNotBorrowedException;
 import com.app.backend.library.domain.BookNotFoundException;
@@ -21,8 +20,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class LendingServiceTest {
@@ -37,9 +34,8 @@ class LendingServiceTest {
     private LendingService lendingService;
 
     @Test
-    void borrowOpensLoanAndMarksBookBorrowed() {
-        Book book = availableBook();
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+    void borrowOpensLoanWhenBookWasAvailable() {
+        when(bookRepository.markBorrowedIfAvailable(1L)).thenReturn(1);
         when(loanRepository.save(any(Loan.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Loan loan = lendingService.borrow(1L, "member-7");
@@ -48,15 +44,12 @@ class LendingServiceTest {
         assertThat(loan.getMemberId()).isEqualTo("member-7");
         assertThat(loan.getBorrowedAt()).isNotNull();
         assertThat(loan.getReturnedAt()).isNull();
-        assertThat(book.isAvailable()).isFalse();
-        verify(bookRepository).saveAndFlush(book);
     }
 
     @Test
     void borrowRejectsAlreadyBorrowedBook() {
-        Book book = availableBook();
-        book.markBorrowed();
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.markBorrowedIfAvailable(1L)).thenReturn(0);
+        when(bookRepository.existsById(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> lendingService.borrow(1L, "member-7"))
                 .isInstanceOf(BookAlreadyBorrowedException.class)
@@ -65,71 +58,41 @@ class LendingServiceTest {
     }
 
     @Test
-    void borrowTranslatesLostOptimisticLockIntoAlreadyBorrowed() {
-        Book book = availableBook();
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(bookRepository.saveAndFlush(book)).thenThrow(new ObjectOptimisticLockingFailureException(Book.class, 1L));
-
-        assertThatThrownBy(() -> lendingService.borrow(1L, "member-7"))
-                .isInstanceOf(BookAlreadyBorrowedException.class)
-                .hasMessage("Book 1 is already borrowed");
-        verify(loanRepository, never()).save(any());
-    }
-
-    @Test
-    void borrowThrowsNotFoundForUnknownBook() {
-        when(bookRepository.findById(9L)).thenReturn(Optional.empty());
+    void borrowThrowsNotFoundForUnknownOrConcurrentlyDeletedBook() {
+        when(bookRepository.markBorrowedIfAvailable(9L)).thenReturn(0);
+        when(bookRepository.existsById(9L)).thenReturn(false);
 
         assertThatThrownBy(() -> lendingService.borrow(9L, "member-7")).isInstanceOf(BookNotFoundException.class);
+        verify(loanRepository, never()).save(any());
     }
 
     @Test
-    void returnClosesOpenLoanAndMakesBookAvailable() {
-        Book book = availableBook();
-        book.markBorrowed();
+    void returnClosesOpenLoanWhenBookWasBorrowed() {
         Loan loan = Loan.open(1L, "member-7", Instant.parse("2026-01-01T10:00:00Z"));
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.markReturnedIfBorrowed(1L)).thenReturn(1);
         when(loanRepository.findByBookIdAndReturnedAtIsNull(1L)).thenReturn(Optional.of(loan));
 
         Loan closed = lendingService.returnBook(1L);
 
         assertThat(closed.getReturnedAt()).isNotNull().isAfter(closed.getBorrowedAt());
-        assertThat(book.isAvailable()).isTrue();
-        verify(bookRepository).saveAndFlush(book);
     }
 
     @Test
     void returnRejectsBookThatIsNotBorrowed() {
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(availableBook()));
-        when(loanRepository.findByBookIdAndReturnedAtIsNull(1L)).thenReturn(Optional.empty());
+        when(bookRepository.markReturnedIfBorrowed(1L)).thenReturn(0);
+        when(bookRepository.existsById(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> lendingService.returnBook(1L))
                 .isInstanceOf(BookNotBorrowedException.class)
                 .hasMessage("Book 1 is not currently borrowed");
-    }
-
-    @Test
-    void returnTranslatesLostOptimisticLockIntoNotBorrowed() {
-        Book book = availableBook();
-        book.markBorrowed();
-        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(loanRepository.findByBookIdAndReturnedAtIsNull(1L))
-                .thenReturn(Optional.of(Loan.open(1L, "member-7", Instant.parse("2026-01-01T10:00:00Z"))));
-        when(bookRepository.saveAndFlush(book)).thenThrow(new ObjectOptimisticLockingFailureException(Book.class, 1L));
-
-        assertThatThrownBy(() -> lendingService.returnBook(1L)).isInstanceOf(BookNotBorrowedException.class);
+        verify(loanRepository, never()).findByBookIdAndReturnedAtIsNull(any());
     }
 
     @Test
     void returnThrowsNotFoundForUnknownBook() {
-        when(bookRepository.findById(9L)).thenReturn(Optional.empty());
+        when(bookRepository.markReturnedIfBorrowed(9L)).thenReturn(0);
+        when(bookRepository.existsById(9L)).thenReturn(false);
 
         assertThatThrownBy(() -> lendingService.returnBook(9L)).isInstanceOf(BookNotFoundException.class);
-    }
-
-    private static Book availableBook() {
-        Book book = new Book("Dune", "Frank Herbert", "9780441013593", 1965);
-        ReflectionTestUtils.setField(book, "id", 1L);
-        return book;
     }
 }
