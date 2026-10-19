@@ -7,6 +7,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(RateLimitProperties.class)
@@ -20,5 +22,15 @@ public class RateLimitConfig {
     @Bean
     RateLimitInterceptor rateLimitInterceptor(FixedWindowRateLimiter rateLimiter) {
         return new RateLimitInterceptor(rateLimiter);
+    }
+
+    @Bean
+    WebMvcConfigurer rateLimitWebMvcConfigurer(RateLimitInterceptor interceptor, RateLimitProperties properties) {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addInterceptors(InterceptorRegistry registry) {
+                registry.addInterceptor(interceptor).addPathPatterns(properties.paths());
+            }
+        };
     }
 }
